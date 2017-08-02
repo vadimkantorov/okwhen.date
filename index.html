@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Ok, when?</title>
+		<meta charset="utf-8" />
+		<meta http-equiv="cache-control" content="no-cache" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+		<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jsrender/0.9.86/jsrender.js" integrity="sha256-MOHR6QbXHNnCMPUAneemMBFNmfZZiXMrBhvlpMpIVI4=" crossorigin="anonymous"></script>
+		<style>
+			html {
+				height: 100%
+			}
+			nav {
+				background: white
+			}
+			.weekend {
+				background-color: #f4d142
+			}
+			.day>h3{
+				margin-left: -15px;
+				margin-right: -15px;
+			}
+			.progress {
+				border-radius: 0 !important;
+				width: 100%;
+				height: 5px;
+				margin-bottom: 0px;
+				margin-top: 3px;
+				background-color: buttonface;
+			}
+			.progress-bar {
+				margin-right: 2px;
+				width: 15%
+			}
+			.btn {
+				border-radius: 0
+			}
+			.btn:focus {
+				box-shadow: 0 0 0 0
+			}
+		</style>
+	</head>
+	
+	<body>
+		<nav class="navbar fixed-top">
+			<div class="container">
+				<div class="row">
+					<div class="col-md-2 offset-md-5 text-center p-0">
+						<h1>Ok, when<a href="#">?</a></h1>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-12 offset-md-0">
+						<div class="text-center">Pick the times and share this <a id="link" href="#">link</a></div>
+						<div class="text-center hidden-xs-up" id="proposed_days">
+							The best option seems <a href="#" id="best_day"></a>, also popular <span id="popular_days"></span>
+							<script type="text/x-jsrender" id="template_proposed_days">
+								{{if ~root.length > 1}}are{{else}}is{{/if}}
+								{{for ~last=~root.length}}<a href="#" day_id="{{>day_id}}">{{>header}}</a>{{if #getIndex() < (~last - 1)}}, {{/if}}{{/for}}
+							</script>
+						</div>
+						<hr class="mb-0" />
+					</div>
+				</div>
+			</div>
+		</nav>
+		<div class="container body-content">
+			<div class="row">
+				<script type="text/x-jsrender" id="template_day">
+					<div class="p-2 day {{if is_weekend}}weekend{{/if}} {{if !~root.show}}hidden-xs-up{{/if}}" day_id="{{>day_id}}">
+						<h3 class="text-center">{{>header}}</h3>
+						<div class="w-100 btn-group-vertical">
+							{{for slots}}
+								<div class="w-100 slot {{if ~root.votes[#index] == 0 && !~root.show_all_slots}}hidden-xs-up{{/if}}">
+									<div class="progress">
+										{{for ~Array(~root.votes[#index] + 1) ~last=~root.votes[#index]}}
+											<div class="progress-bar {{if #index == ~last}}last invisible{{/if}}" role="progressbar" aria-valuenow="15" aria-valuemin="0" aria-valuemax="100" />
+										{{/for}}
+									</div>
+									<button type="button" class="btn" day_id="{{>~root.day_id}}" slot_id="{{>#index}}" title="{{>~format_votes_tooltip(~root.votes[#index])}}">{{>}}</button>
+								</div>
+							{{/for}}
+						</div>
+					</div>
+				</script>
+				<div class="col-md-2 offset-md-5" id="calendar">
+				</div>
+				<div class="col-md-2 offset-md-5 text-center">
+					<button class="btn btn-secondary hidden-xs-up w-100 pl-0 pr-0 mt-2 text-center" type="button" id="show_all_slots">Show all slots</button>
+					<button class="btn btn-secondary hidden-xs-up w-100 pl-0 pr-0 mt-2 mb-2 text-center" type="button" id="add_week">Add one more week</button>
+					
+					<small class="text-muted"><a href="https://github.com/vadimkantorov/okwhen">code</a> by <a href="https://twitter.com/vadimkantorov">@vadimkantorov</a></small>
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript">
+			var Coder = 
+			{
+				milliseconds_per_day: 24 * 60 * 60 * 1000, 
+				end_of_user : 7,
+				encode : function(start_date, preferences)
+				{
+					var unix_day = Math.ceil(start_date.getTime() / this.milliseconds_per_day), end_of_user = this.end_of_user;
+					var encode_day = function(v)
+					{
+						var b = 0;
+						$.map(v, function(slot_id) {b |= (1 << slot_id); });
+						return b;
+					};
+					var bytes = [];
+					bytes.push((unix_day - unix_day % 256) / 256);
+					bytes.push(unix_day % 256);
+					$.map(preferences, function(p)
+					{
+						bytes.push(p.length);
+						var prev_day_id = 0;
+						$.map($.map(p, encode_day), function(b, day_id)
+						{
+							if(b > 0)
+							{
+								if(day_id - prev_day_id < 6)
+								{
+									b |= (day_id - prev_day_id) << 5;
+									bytes.push(b);
+								}
+								else
+								{
+									b |= (6 << 5);
+									bytes.push(b);
+									bytes.push(day_id - prev_day_id - 6);
+								}
+								prev_day_id = day_id;
+							}
+						});
+						bytes.push(end_of_user << 5);
+					});
+					return this.to_b58(bytes);
+				},
+				decode : function(string)
+				{
+					var bytes = this.from_b58(string);
+					console.log(bytes);
+					var start_date = new Date((bytes[0] * 256 + bytes[1]) * this.milliseconds_per_day);
+					var user_preferences = [];
+					for(var user_id = 0, i = 2; i < bytes.length; user_id++)
+					{
+						user_preferences[user_id] = Array(bytes[i++]);
+						for(var day_id = 0; day_id < user_preferences[user_id].length; day_id++)
+							user_preferences[user_id][day_id] = [];
+						
+						var prev_day_id = 0;
+						for(var day_id = bytes[i++]; (day_id >> 5) != this.end_of_user && i < bytes.length; day_id = bytes[i++])
+						{
+							console.log(day_id);
+							var b = day_id;
+							day_id = day_id >> 5;
+							day_id = prev_day_id + (day_id < 6 ? day_id : (day_id + bytes[i++]));
+							user_preferences[user_id][day_id] = [];
+							for(var k = 0; k < 5; k++)
+								if((b & (1 << k)) != 0)
+									user_preferences[user_id][day_id].push(k);
+							prev_day_id = day_id;
+						}
+					}
+					return [start_date, user_preferences];
+				},
+				A : "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz",
+				to_b58 : function(B){var d=[],s="",i,j,c,n;for(i in B){j=0,c=B[i];s+=c||s.length^i?"":1;while(j in d||c){n=d[j];n=n?n*256+c:c;c=n/58|0;d[j]=n%58;j++}}while(j--)s+=this.A[d[j]];return s},
+				from_b58 : function(S){var d=[],b=[],i,j,c,n;for(i in S){j=0,c=this.A.indexOf(S[i]);if(c<0)return undefined;c||b.length^i?i:b.push(0);while(j in d||c){n=d[j];n=n?n*58+c:c;c=n>>8;d[j]=n%256;j++}}while(j--)b.push(d[j]);return new Uint8Array(b)}
+			};
+			
+			function ViewModel(hash)
+			{
+				this.weekday_slots = ['lunch time', 'dinner time', 'late night'];
+				this.weekend_slots = ['morning', 'lunch time', 'afternoon', 'dinner time', 'late night'];
+				
+				this.init_new_days = function(begin_day_id)
+				{
+					for(var day_id = begin_day_id; day_id < this.new_user_input.length; day_id++)
+					{
+						this.dates.push(new Date(this.start_date.getTime() + day_id * (24 * 60 * 60 * 1000)));
+						this.is_weekend.push(this.dates[this.dates.length - 1].getDay() % 6 == 0);
+						this.new_user_input[day_id] = this.new_user_input[day_id] || [];
+						this.votes.push($.map(Array(this.is_weekend[day_id] ? this.weekend_slots.length : this.weekday_slots.length), function() {return 0;}));
+						
+						for(var i = 0; i < this.user_preferences.length; i++)
+						{
+							for(var j = 0; j < this.user_preferences[i][day_id].length; j++)
+							{
+								var slot_id = this.user_preferences[i][day_id][j];
+								this.votes[day_id][slot_id] = (this.votes[day_id][slot_id] || 0) + 1;
+							}
+						}
+					}
+				}
+				
+				this.toggle_slot = function(day_id, slot_id)
+				{
+					this.new_user_input[day_id][$.inArray(slot_id, this.new_user_input[day_id]) == -1 ? 'push' : 'pop'](slot_id);
+				};
+				
+				this.add_one_week = function()
+				{
+					var week = 7;
+					for(var k = 0; k < week; k++)
+					{
+						this.new_user_input.push(null);
+						for(var i = 0; i < this.user_preferences.length; i++)
+							this.user_preferences[i].push([]);						
+					}
+					this.init_new_days(this.new_user_input.length - week);
+					return week;
+				};
+				
+				this.propose_days = function()
+				{
+					var indices = $.map(this.votes, function(x, i) {return i;});
+					var total_votes = $.map(this.votes, function(xs)
+					{
+						var total = 0;
+						for(var i = 0; i < xs.length; i++)
+							total += xs[i];
+						return total;
+					});
+					var dates = this.dates;
+					indices.sort(function(i, j) {return -total_votes[i] < -total_votes[j] ? -1 : -total_votes[i] > -total_votes[j] ? 1 : dates[i] < dates[j] ? -1 : 1; });
+					return $.grep(indices.slice(0, 3), function(i) { return total_votes[i] > 0;});
+				};
+				
+				this.propose_slot = function(day_id)
+				{
+					var indices = $.map(this.votes[day_id], function(x, i) {return i;});
+					var total_votes = this.votes[day_id];
+					indices.sort(function(i, j) {return -total_votes[i] < -total_votes[j] ? -1 : -total_votes[i] > -total_votes[j] ? 1 : -i < -j ? -1 : 1; });
+					return (this.is_weekend[day_id] ? this.weekend_slots : this.weekday_slots)[indices[0]];
+				};
+				
+				this.toString = function(share)
+				{
+					return Coder.encode(this.start_date, (share ? [Array(this.new_user_input.length)] : []).concat([this.new_user_input], this.user_preferences));
+				};
+				
+				this.parse = function(hash)
+				{
+					var decoded = Coder.decode(hash.substring(1));
+					this.start_date = decoded[0];
+					this.user_preferences = decoded[1];
+				}
+				
+				var today = new Date();
+				this.start_date = new Date(today.toDateString());
+				this.user_preferences = [];
+				this.new_vote = hash == '';
+				if(!this.new_vote)
+					this.parse(hash);
+				this.new_user_input = this.user_preferences.length > 0 ? this.user_preferences.splice(0, 1)[0] : Array(2 * 7 + (this.start_date.getDay() < 2 ? 1 - this.start_date.getDay() : 8 - this.start_date.getDay()));
+				this.votes = [];
+				this.dates = [];
+				this.is_weekend = [];
+				this.init_new_days(0);
+				this.today_id = $.map(this.dates, function(x) {return x.toDateString() == today.toDateString();}).indexOf(true);
+			}
+			
+			function View(view_model)
+			{
+				this.append_days_to_calendar = function(day_id_start, show_all_slots)
+				{
+					for(var day_id = day_id_start; day_id < view_model.new_user_input.length; day_id++)
+					{
+						$('#calendar').append($('#template_day').render(
+						{
+							day_id : day_id,
+							header : this.format_header(view_model.dates[day_id]),
+							is_weekend : view_model.is_weekend[day_id],
+							slots : view_model.is_weekend[day_id] ? view_model.weekend_slots : view_model.weekday_slots,
+							votes : view_model.votes[day_id],
+							show_all_slots : show_all_slots,
+							show : show_all_slots || ($.grep(view_model.votes[day_id], function(x) {return x > 0;}).length > 0 && day_id >= view_model.today_id)
+						}, {Array : Array, format_votes_tooltip : this.format_votes_tooltip} ));
+					}
+				}
+				
+				this.update_link = function(set_location_link, set_location_hash)
+				{
+					var href = window.location.protocol + '//' + window.location.hostname + window.location.pathname + window.location.search + '#';
+					var hash = view_model.toString(true);
+					
+					$('#link').attr('href', set_location_link ? href + hash : '#');
+					if(set_location_hash)
+					{
+						this.reinit_latch = true;
+						window.location.hash = '#' + view_model.toString(false);
+					}
+				};
+				
+				this.mark_voted = function(button)
+				{
+					button.prev().find('.last').toggleClass('invisible');
+					button.toggleClass('btn-success').attr("title", this.format_votes_tooltip(button.prev().find(".progress-bar:visible").length));
+				};
+				
+				this.rebind = function()
+				{
+					var self = this;
+					
+					$(window).off().on('hashchange', function()
+					{
+						if(!self.reinit_latch)
+						{
+							view_model = new ViewModel(window.location.hash);
+							self.init();
+							self.rebind();
+						}
+						self.reinit_latch = false;
+					});
+					
+					$('#proposed_days>span>a').off().click(function()
+					{
+						var day_id = parseInt($(this).attr('day_id'));
+						var scroll_to = $('.day[day_id=' + day_id + ']'), container = $('.body-content');
+						$('.body-content').scrollTop(scroll_to.offset().top - container.offset().top + container.scrollTop());
+						$(this).removeClass('hover');
+						return false;
+					});
+					
+					$('.slot>button').off().click(function()
+					{
+						view_model.toggle_slot(parseInt($(this).attr('day_id')), parseInt($(this).attr('slot_id')));
+						self.mark_voted($(this));
+						self.update_link(true, true);
+					});
+					
+					$('#add_week').off().click(function()
+					{
+						var num_added_days = view_model.add_one_week();
+						self.append_days_to_calendar(view_model.new_user_input.length - num_added_days, true);
+						self.update_link(true, false);
+						self.rebind();
+					});
+					
+					$('#show_all_slots').off().click(function()
+					{
+						$('.day.hidden-xs-up').toggleClass('hidden-xs-up');
+						$('.slot.hidden-xs-up').toggleClass('hidden-xs-up');
+					});
+					
+					$('a').click(function() {
+						$(this).blur();
+					});
+				};
+				
+				this.init = function()
+				{
+					this.reinit_latch = false;
+					var format_header = this.format_header;
+					var proposed_days = $.map(view_model.propose_days(), function(day_id) {
+						return {
+							day_id : day_id,
+							header : format_header(view_model.dates[day_id])
+						};
+					 })
+					$('#popular_days').html($('#template_proposed_days').render(proposed_days.slice(1, 2)));
+					$('#best_day').text(proposed_days.length > 0 ? proposed_days[0].header + ' ' + view_model.propose_slot(proposed_days[0].day_id) : '');
+					$('#proposed_days')[(view_model.user_preferences.length < 2 || proposed_days.length == 0)? 'addClass' : 'removeClass']('hidden-xs-up');
+					$('body').css('padding-top', $('hr').offset().top - $(document).scrollTop() + 10);
+					$('#calendar').empty();
+					this.append_days_to_calendar(0, view_model.user_preferences.length == 0);
+					this.update_link(!view_model.new_vote, false);
+					for(var day_id = 0; day_id < view_model.new_user_input.length; day_id++)
+						for(var i = 0; i < view_model.new_user_input[day_id].length; i++)
+							this.mark_voted($('[day_id=' + day_id + '][slot_id=' + view_model.new_user_input[day_id][i] + ']'));
+							
+					$('#show_all_slots')[view_model.user_preferences.length == 0 ? 'addClass' : 'removeClass']('hidden-xs-up');
+					$('#add_week').removeClass('hidden-xs-up');
+				};
+				
+				this.format_header = function(date)
+				{
+					return $.trim(date.toDateString().replace(date.getFullYear(), ''));
+				};
+				
+				this.format_votes_tooltip = function(vote_count)
+				{
+					return vote_count + ' vote' + (vote_count != 1 ? 's' : '');
+				}
+			}
+			
+			$(function()
+			{
+				var view = new View(new ViewModel(window.location.hash));
+				view.init();
+				view.rebind();
+			});
+		</script>
+	</body>
+</html>
