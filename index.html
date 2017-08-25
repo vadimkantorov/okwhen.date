@@ -151,7 +151,6 @@
 				decode : function(string)
 				{
 					var bytes = this.from_b58(string);
-					console.log(bytes);
 					var start_date = new Date((bytes[0] * 256 + bytes[1]) * this.milliseconds_per_day);
 					var user_preferences = [];
 					for(var user_id = 0, i = 2; i < bytes.length; user_id++)
@@ -163,7 +162,6 @@
 						var prev_day_id = 0;
 						for(var day_id = bytes[i++]; (day_id >> 5) != this.end_of_user && i < bytes.length; day_id = bytes[i++])
 						{
-							console.log(day_id);
 							var b = day_id;
 							day_id = day_id >> 5;
 							day_id = prev_day_id + (day_id < 6 ? day_id : (day_id + bytes[i++]));
