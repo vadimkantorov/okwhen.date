@@ -64,9 +64,8 @@
 					<div class="col-md-12 offset-md-0">
 						<div class="text-center">Pick the times and share this <a id="link" href="#">link</a></div>
 						<div class="text-center hidden-xs-up" id="proposed_days">
-							The best option seems <a href="#" id="best_day"></a>, also popular <span id="popular_days"></span>
-							<script type="text/x-jsrender" id="template_proposed_days">
-								{{if ~root.length > 1}}are{{else}}is{{/if}}
+							The best option seems <a href="#" id="best_day"></a><span id="popular_days"></span>
+							<script type="text/x-jsrender" id="template_proposed_days">, also popular {{if ~root.length > 1}}are{{else}}is{{/if}}
 								{{for ~last=~root.length}}<a href="#" day_id="{{>day_id}}">{{>header}}</a>{{if #getIndex() < (~last - 1)}}, {{/if}}{{/for}}
 							</script>
 						</div>
@@ -369,7 +368,7 @@
 							header : format_header(view_model.dates[day_id])
 						};
 					 })
-					console.log(proposed_days.slice(1, 2));
+					console.log(proposed_days);
 					$('#popular_days').html($('#template_proposed_days').render(proposed_days.slice(1, 2)));
 					$('#best_day').text(proposed_days.length > 0 ? proposed_days[0].header + ' ' + view_model.propose_slot(proposed_days[0].day_id) : '');
 					$('#proposed_days')[(view_model.user_preferences.length < 2 || proposed_days.length == 0)? 'addClass' : 'removeClass']('hidden-xs-up');
